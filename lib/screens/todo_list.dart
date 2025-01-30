@@ -38,21 +38,24 @@ class _TodoListPageState extends State<TodoListPage> {
               child: ListView.builder(
                 itemCount: items.length,
                 itemBuilder: (context, index) {
-                  final item = items[index];
+                  final item = items[index] as Map;
+                  final id = item['_id'] as String;
                   return ListTile(
                     leading: CircleAvatar(child: Text('${index + 1}')),
                     title: Text(item['title'] ?? ''),
                     subtitle: Text(item['description'] ?? ''),
-                    trailing: PopupMenuButton(itemBuilder: (context) {
+                    trailing: PopupMenuButton(onSelected: (value) {
+                      if (value == 'edit') {
+                        // perform edit
+                        navigateToEditPage(item);
+                      } else if (value == 'delete') {
+                        // perform delete
+                        deleteById(id);
+                      }
+                    }, itemBuilder: (context) {
                       return [
-                        PopupMenuItem(
-                          child: Text('Edit'),
-                          onTap: () {},
-                        ),
-                        PopupMenuItem(
-                          child: Text('Delete'),
-                          onTap: () {},
-                        ),
+                        PopupMenuItem(value: 'edit', child: Text('Edit')),
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
                       ];
                     }),
                   );
@@ -69,9 +72,39 @@ class _TodoListPageState extends State<TodoListPage> {
     );
   }
 
+  Future<void> deleteById(String id) async {
+    // delete the item
+    final url = "https://api.nstack.in/v1/todos/$id";
+    final uri = Uri.parse(url);
+    final respnose = await http.delete(uri);
+    // remote item from the list
+    if (respnose.statusCode == 200) {
+      final filtered = items.where((element) => element['_id'] != id).toList();
+      setState(() {
+        items = filtered;
+      });
+    } else {
+      // show error
+    }
+  }
+
   Future<void> navigateToAddPage() async {
     final route = MaterialPageRoute(builder: (context) => const AddTodoPage());
     await Navigator.push(context, route);
+    setState(() {
+      isLoading = true;
+    });
+    fetchTodo();
+  }
+
+  Future<void> navigateToEditPage(Map item) async {
+    final route =
+        MaterialPageRoute(builder: (context) => AddTodoPage(todo: item));
+    await Navigator.push(context, route);
+    setState(() {
+      isLoading = true;
+    });
+    fetchTodo();
   }
 
   Future<void> fetchTodo() async {
@@ -124,5 +157,16 @@ class _TodoListPageState extends State<TodoListPage> {
         });
       }
     }
+  }
+
+  void showErrorMessage(String message) {
+    final snackBar = SnackBar(
+      content: Text(
+        message,
+        style: TextStyle(color: Colors.white),
+      ),
+      backgroundColor: Colors.red,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 }
